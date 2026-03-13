@@ -472,41 +472,36 @@ emit_full_profile() {
 	echo "${prefix}"
 
 	# Submix settings
-	local submix_data
+	local submix_supported submix_data
+	submix_supported=$(echo "$MIXER" | jq -r '.levels.submix_supported')
 	submix_data=$(echo "$MIXER" | jq -r '.levels.submix')
-	if [ "$submix_data" != "null" ]; then
-		local submix_enabled
-		submix_enabled=$(echo "$submix_data" | jq -r '.enabled // empty' 2>/dev/null || true)
+	if [ "$submix_supported" = "true" ] && [ "$submix_data" != "null" ]; then
+		local has_inputs
+		has_inputs=$(echo "$submix_data" | jq -r '.inputs | length' 2>/dev/null || echo "0")
 
 		echo "${prefix}  # Submix settings"
 		echo "${prefix}  submix = {"
 
-		if [ -n "$submix_enabled" ]; then
-			echo "${prefix}    enabled = ${submix_enabled};"
-		else
+		if [ "$has_inputs" -gt 0 ]; then
 			echo "${prefix}    enabled = true;"
+		else
+			echo "${prefix}    enabled = false;"
 		fi
 
-		# Submix volumes
-		local submix_vols
-		submix_vols=$(echo "$submix_data" | jq -r '.volume // empty' 2>/dev/null || true)
-		if [ -n "$submix_vols" ] && [ "$submix_vols" != "null" ]; then
+		# Submix volumes (from .inputs[].volume)
+		if [ "$has_inputs" -gt 0 ]; then
 			echo "${prefix}    volumes = {"
-			echo "$submix_data" | jq -r '.volume | to_entries[] | "\(.key) \(.value)"' 2>/dev/null | while read -r ch val; do
+			echo "$submix_data" | jq -r '.inputs | to_entries[] | "\(.key) \(.value.volume)"' 2>/dev/null | while read -r ch val; do
 				local nix_ch pct
 				nix_ch=$(map_channel "$ch")
 				pct=$(vol_percent "$val")
 				echo "${prefix}      ${nix_ch} = ${pct};"
 			done
 			echo "${prefix}    };"
-		fi
 
-		# Submix linked
-		local submix_linked
-		submix_linked=$(echo "$submix_data" | jq -r '.linked // empty' 2>/dev/null || true)
-		if [ -n "$submix_linked" ] && [ "$submix_linked" != "null" ]; then
+			# Submix linked (from .inputs[].linked)
 			echo "${prefix}    linked = {"
-			echo "$submix_data" | jq -r '.linked | to_entries[] | "\(.key) \(.value)"' 2>/dev/null | while read -r ch val; do
+			echo "$submix_data" | jq -r '.inputs | to_entries[] | "\(.key) \(.value.linked)"' 2>/dev/null | while read -r ch val; do
 				local nix_ch
 				nix_ch=$(map_channel "$ch")
 				echo "${prefix}      ${nix_ch} = ${val};"
@@ -514,18 +509,27 @@ emit_full_profile() {
 			echo "${prefix}    };"
 		fi
 
-		# Submix output mix
-		local submix_mix
-		submix_mix=$(echo "$submix_data" | jq -r '.mix // empty' 2>/dev/null || true)
-		if [ -n "$submix_mix" ] && [ "$submix_mix" != "null" ]; then
+		# Submix output mix (from .outputs)
+		local submix_outputs
+		submix_outputs=$(echo "$submix_data" | jq -r '.outputs // empty' 2>/dev/null || true)
+		if [ -n "$submix_outputs" ] && [ "$submix_outputs" != "null" ]; then
 			echo "${prefix}    outputMix = {"
-			echo "$submix_data" | jq -r '.mix | to_entries[] | "\(.key) \(.value)"' 2>/dev/null | while read -r dev mix; do
+			echo "$submix_data" | jq -r '.outputs | to_entries[] | "\(.key) \(.value)"' 2>/dev/null | while read -r dev mix; do
 				local nix_dev nix_mix
 				nix_dev=$(map_router_output "$dev")
 				nix_mix=$(echo "$mix" | tr '[:upper:]' '[:lower:]')
 				echo "${prefix}      ${nix_dev} = \"${nix_mix}\";"
 			done
 			echo "${prefix}    };"
+		fi
+
+		# Monitor mix output (from .levels.output_monitor)
+		local monitor_out
+		monitor_out=$(echo "$MIXER" | jq -r '.levels.output_monitor // empty')
+		if [ -n "$monitor_out" ] && [ "$monitor_out" != "null" ]; then
+			local nix_monitor
+			nix_monitor=$(map_channel "$monitor_out")
+			echo "${prefix}    monitorMix = \"${nix_monitor}\";"
 		fi
 
 		echo "${prefix}  };"
@@ -653,7 +657,52 @@ emit_full_profile() {
 	fi
 
 	echo "${prefix}  };"
+	echo "${prefix}"
+
+	# Settings
+	local settings_data
+	settings_data=$(echo "$MIXER" | jq -r '.settings // empty')
+	if [ -n "$settings_data" ] && [ "$settings_data" != "null" ]; then
+		local mute_hold_duration monitor_with_fx deafen_on_chat_mute lock_faders
+		mute_hold_duration=$(echo "$MIXER" | jq '.settings.mute_hold_duration')
+		monitor_with_fx=$(echo "$MIXER" | jq '.settings.enable_monitor_with_fx')
+		deafen_on_chat_mute=$(echo "$MIXER" | jq '.settings.vc_mute_also_mute_cm')
+		lock_faders=$(echo "$MIXER" | jq '.settings.lock_faders')
+
+		echo "${prefix}  # Settings"
+		echo "${prefix}  settings = {"
+		[ "$mute_hold_duration" != "null" ] && echo "${prefix}    muteHoldDuration = ${mute_hold_duration};"
+		[ "$monitor_with_fx" != "null" ] && echo "${prefix}    monitorWithFx = ${monitor_with_fx};"
+		[ "$deafen_on_chat_mute" != "null" ] && echo "${prefix}    deafenOnChatMute = ${deafen_on_chat_mute};"
+		[ "$lock_faders" != "null" ] && echo "${prefix}    lockFaders = ${lock_faders};"
+		echo "${prefix}  };"
+	fi
+
 	echo "${prefix}}"
+}
+
+# ---------------------------------------------------------------------------
+# Utility/daemon settings (from .config, not per-profile)
+# ---------------------------------------------------------------------------
+emit_utility_config() {
+	local prefix="$1"
+	local autostart show_tray tts_enabled net_access log_level fw_source open_ui
+	autostart=$(echo "$STATUS" | jq '.config.autostart_enabled')
+	show_tray=$(echo "$STATUS" | jq '.config.show_tray_icon')
+	tts_enabled=$(echo "$STATUS" | jq '.config.tts_enabled')
+	net_access=$(echo "$STATUS" | jq '.config.allow_network_access')
+	log_level=$(echo "$STATUS" | jq -r '.config.log_level // empty')
+	fw_source=$(echo "$STATUS" | jq -r '.config.firmware_source // empty')
+	open_ui=$(echo "$STATUS" | jq '.config.open_ui_on_launch')
+
+	echo "${prefix}# Utility settings (daemon-level, not managed by HM module):"
+	[ "$autostart" != "null" ] && echo "${prefix}# autostart_enabled = ${autostart}"
+	[ "$show_tray" != "null" ] && echo "${prefix}# show_tray_icon = ${show_tray}"
+	[ "$tts_enabled" != "null" ] && echo "${prefix}# tts_enabled = ${tts_enabled}"
+	[ "$net_access" != "null" ] && echo "${prefix}# allow_network_access = ${net_access}"
+	[ -n "$log_level" ] && echo "${prefix}# log_level = \"${log_level}\""
+	[ -n "$fw_source" ] && echo "${prefix}# firmware_source = \"${fw_source}\""
+	[ "$open_ui" != "null" ] && echo "${prefix}# open_ui_on_launch = ${open_ui}"
 }
 
 # ---------------------------------------------------------------------------
@@ -663,6 +712,8 @@ if [ "$MODE" = "current" ]; then
 	echo "# Generated by export-config.sh on $(date -Iseconds)"
 	echo "# Paste this under: programs.goxlr = { ... };"
 	emit_full_profile ""
+	echo ""
+	emit_utility_config ""
 	exit 0
 fi
 
@@ -684,6 +735,8 @@ if [ "$MODE" = "single" ]; then
 	fi
 
 	emit_full_profile ""
+	echo ""
+	emit_utility_config ""
 	exit 0
 fi
 
@@ -782,5 +835,12 @@ for mic_profile in "${MIC_PROFILES[@]}"; do
 		emit_microphone_section "# "
 	fi
 done
+
+echo ""
+echo ""
+echo "# ======================================================================"
+echo "# Utility settings (daemon-level)"
+echo "# ======================================================================"
+emit_utility_config ""
 
 # Cleanup trap restores original profiles on exit
