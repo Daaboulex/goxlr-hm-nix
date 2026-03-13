@@ -76,9 +76,9 @@ fi
 ORIG_PROFILE=$(echo "$MIXER" | jq -r '.profile_name')
 ORIG_MIC_PROFILE=$(echo "$MIXER" | jq -r '.mic_profile_name')
 
-# Read available profiles from .files
-readarray -t PROFILES < <(echo "$STATUS" | jq -r ".mixers.\"${MIXER_KEY}\".files.profiles[]" 2>/dev/null)
-readarray -t MIC_PROFILES < <(echo "$STATUS" | jq -r ".mixers.\"${MIXER_KEY}\".files.mic_profiles[]" 2>/dev/null)
+# Read available profiles from top-level .files
+readarray -t PROFILES < <(echo "$STATUS" | jq -r '.files.profiles[]' 2>/dev/null)
+readarray -t MIC_PROFILES < <(echo "$STATUS" | jq -r '.files.mic_profiles[]' 2>/dev/null)
 
 # Validate --profile target exists
 if [ "$MODE" = "single" ]; then
