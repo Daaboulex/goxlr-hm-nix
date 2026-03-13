@@ -17,8 +17,6 @@ let
   cfg = config.programs.goxlr;
 
   # Build a list of goxlr-client commands from the declared state
-  mkCmd = args: "goxlr-client ${args}";
-
   deviceFlag = lib.optionalString (cfg.device != null) "--device ${cfg.device} ";
 
   mkDeviceCmd = args: "goxlr-client ${deviceFlag}${args}";
@@ -785,17 +783,17 @@ in
       type = lib.types.attrsOf lib.types.int;
       default = { };
       example = {
-        mic = 255;
-        chat = 200;
-        music = 150;
-        game = 190;
-        console = 128;
-        system = 180;
-        sample = 128;
-        headphones = 220;
-        line-out = 128;
+        mic = 100;
+        chat = 80;
+        music = 60;
+        game = 75;
+        console = 50;
+        system = 70;
+        sample = 50;
+        headphones = 85;
+        line-out = 50;
       };
-      description = "Channel volume levels (0-255). Keys are channel names: mic, chat, music, game, console, system, sample, headphones, mic-monitor, line-out.";
+      description = "Channel volume levels (0-100 percent). Keys are channel names: mic, chat, music, game, console, system, sample, headphones, mic-monitor, line-out.";
     };
 
     # --- Fader assignments ---
@@ -856,7 +854,7 @@ in
           headphones = true;
           chat-mic = true;
           broadcast-mix = true;
-          sampler = false;
+          samples = false;
         };
         music = {
           headphones = true;
@@ -865,7 +863,7 @@ in
       };
       description = ''
         Audio routing matrix. Keys are input devices, values are attrsets of output devices to booleans.
-        Inputs: microphone, chat, music, game, console, line-in, system, sample
+        Inputs: microphone, chat, music, game, console, line-in, system, samples
         Outputs: headphones, broadcast-mix, chat-mic, sampler, line-out
       '';
     };
@@ -932,7 +930,7 @@ in
           mic = 255;
           chat = 200;
         };
-        description = "Submix channel volume levels (0-255). Same channel names as main volumes (lowercase-hyphenated).";
+        description = "Submix channel volume levels (0-100 percent). Same channel names as main volumes (lowercase-hyphenated).";
       };
 
       linked = lib.mkOption {
@@ -1070,7 +1068,7 @@ in
           };
         };
       };
-      description = "Sampler configuration. First key is bank (SamplerA, SamplerB, SamplerC), second key is button (TopLeft, TopRight, BottomLeft, BottomRight). Keys use PascalCase in config and are automatically converted to lowercase-hyphenated for goxlr-client.";
+      description = "Sampler configuration. First key is bank (SamplerA, SamplerB, SamplerC), second key is button (TopLeft, TopRight, BottomLeft, BottomRight). Keys use PascalCase in config and are converted to CLI format automatically. Playback modes/orders also use PascalCase (PlayNext, PlayStop, Sequential, Random, etc.).";
     };
 
     # --- Cough button ---
@@ -1137,7 +1135,7 @@ in
             offStyle = "dimmed";
           };
         };
-        description = "Lighting for groups of buttons. Keys are group names (e.g., fader-mute, effect-selector, effect-types, sampler-group).";
+        description = "Lighting for groups of buttons. Keys are group names (e.g., fader-mute, effect-selector, effect-types).";
       };
 
       simple = lib.mkOption {
@@ -1167,23 +1165,19 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = builtins.all (v: v >= 0 && v <= 255) (builtins.attrValues cfg.volumes);
-        message = "All GoXLR volume values must be between 0 and 255";
+        assertion = builtins.all (v: v >= 0 && v <= 100) (builtins.attrValues cfg.volumes);
+        message = "All GoXLR volume values must be between 0 and 100 (percent)";
       }
       {
-        assertion = builtins.all (v: v >= 0 && v <= 255) (builtins.attrValues cfg.submix.volumes);
-        message = "All GoXLR submix volume values must be between 0 and 255";
+        assertion = builtins.all (v: v >= 0 && v <= 100) (builtins.attrValues cfg.submix.volumes);
+        message = "All GoXLR submix volume values must be between 0 and 100 (percent)";
       }
     ];
 
     systemd.user.services.goxlr-apply = lib.mkIf (allCmds != [ ]) {
       Unit = {
         Description = "Apply declarative GoXLR mixer state";
-        After = [
-          "goxlr-daemon.service"
-          "graphical-session.target"
-        ];
-        Requires = [ "goxlr-daemon.service" ];
+        After = [ "graphical-session.target" ];
       };
       Service = {
         Type = "oneshot";

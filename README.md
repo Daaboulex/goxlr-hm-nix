@@ -30,14 +30,14 @@ programs.goxlr = {
   profile = "Default";
   micProfile = "Default";
 
-  # Channel volumes (0-255)
+  # Channel volumes (0-100 percent, CLI converts to 0-255 internally)
   volumes = {
-    mic = 255;
-    chat = 200;
-    music = 150;
-    game = 190;
-    system = 180;
-    headphones = 220;
+    mic = 100;
+    chat = 80;
+    music = 60;
+    game = 75;
+    system = 70;
+    headphones = 85;
   };
 
   # Fader assignments
@@ -202,7 +202,7 @@ programs.goxlr = {
 | `profile` | string | Device profile to load on login |
 | `micProfile` | string | Mic profile to load on login |
 | **Channels** | | |
-| `volumes` | attrs of int | Channel volumes (0-255) |
+| `volumes` | attrs of int | Channel volumes (0-100 percent) |
 | `faders` | attrs of string | Fader-to-channel assignments (a, b, c, d) |
 | `faderMuteBehaviour` | attrs of string | Per-fader mute behaviour on press |
 | `faderMuteState` | attrs of string | Per-fader mute state (unmuted, muted-to-x, muted-to-all) |
@@ -224,7 +224,7 @@ programs.goxlr = {
 | `microphone.equaliserMini.<band>` | submodule | GoXLR Mini EQ (frequency, gain per band) |
 | **Submix** | | |
 | `submix.enabled` | bool | Enable/disable submixes |
-| `submix.volumes` | attrs of int | Submix channel volumes (0-255) |
+| `submix.volumes` | attrs of int | Submix channel volumes (0-100 percent) |
 | `submix.linked` | attrs of bool | Link channel volumes to submix |
 | `submix.outputMix` | attrs of string | Output device mix assignment (a or b) |
 | `submix.monitorMix` | string | Output device to monitor |
@@ -272,6 +272,16 @@ programs.goxlr = {
 All options under `programs.goxlr` are prefixed accordingly (e.g., `programs.goxlr.effects.reverb.style`).
 
 All string values for channel names, fader names, styles, modes, and behaviours must be the exact lowercase-hyphenated values accepted by `goxlr-client`.
+
+## Exporting current settings
+
+To generate Nix config from your current GoXLR state:
+
+```bash
+bash export-config.sh > my-goxlr-config.nix
+```
+
+This reads `goxlr-client --status-json`, converts all values to the correct format (volumes 0-100, kebab-case names), and outputs valid Nix ready to paste into your `programs.goxlr` block. Requires `goxlr-client` and `jq`.
 
 ## License
 
