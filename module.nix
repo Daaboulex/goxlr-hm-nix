@@ -95,7 +95,7 @@ let
     lib.mapAttrsToList (
       fader: state:
       lib.optionals (state != null) [
-        (mkDeviceCmd "faders ${fader} mute-state ${if state then "on" else "off"}")
+        (mkDeviceCmd "faders mute-state ${fader} ${state}")
       ]
     ) cfg.faderMuteState
   );
@@ -331,10 +331,10 @@ let
       (mkDeviceCmd "effects echo delay-right ${toString e.delayRight}")
     ]
     ++ lib.optionals (e.feedbackXFBLtoR != null) [
-      (mkDeviceCmd "effects echo feedback-xfb-l-to-r ${toString e.feedbackXFBLtoR}")
+      (mkDeviceCmd "effects echo feedback-xfb-lto-r ${toString e.feedbackXFBLtoR}")
     ]
     ++ lib.optionals (e.feedbackXFBRtoL != null) [
-      (mkDeviceCmd "effects echo feedback-xfb-r-to-l ${toString e.feedbackXFBRtoL}")
+      (mkDeviceCmd "effects echo feedback-xfb-rto-l ${toString e.feedbackXFBRtoL}")
     ];
 
   # --- Pitch ---
@@ -583,7 +583,7 @@ let
       (mkDeviceCmd "cough-button mute-behaviour ${cfg.coughButton.muteBehaviour}")
     ]
     ++ lib.optionals (cfg.coughButton.muteState != null) [
-      (mkDeviceCmd "cough-button mute-state ${if cfg.coughButton.muteState then "on" else "off"}")
+      (mkDeviceCmd "cough-button mute-state ${cfg.coughButton.muteState}")
     ];
 
   # --- Bleep volume ---
@@ -697,7 +697,7 @@ let
     options = {
       top = mkNullStr "Top colour in hex [RRGGBB]";
       bottom = mkNullStr "Bottom colour in hex [RRGGBB]";
-      display = mkNullStr "Display style: Gradient, Meter, TwoColour";
+      display = mkNullStr "Display style: two-colour, gradient, meter, gradient-meter";
     };
   };
 
@@ -705,7 +705,7 @@ let
     options = {
       colour = mkNullStr "Primary button colour [RRGGBB]";
       colour2 = mkNullStr "Secondary button colour [RRGGBB]";
-      offStyle = mkNullStr "Off style: Dimmed, Colour1, Colour2";
+      offStyle = mkNullStr "Off style: dimmed, colour2, dimmed-colour2";
     };
   };
 
@@ -755,8 +755,8 @@ let
         default = [ ];
         description = "Audio files to add to this sampler button";
       };
-      playbackMode = mkNullStr "Playback mode: PlayNext, PlayStop, PlayFade, StopOnRelease, FadeOnRelease, Loop";
-      playbackOrder = mkNullStr "Playback order: Sequential, Random";
+      playbackMode = mkNullStr "Playback mode: play-next, play-stop, play-fade, stop-on-release, fade-on-release, loop";
+      playbackOrder = mkNullStr "Playback order: sequential, random";
       sampleSettings = lib.mkOption {
         type = lib.types.listOf samplerSampleSettingsSubmodule;
         default = [ ];
@@ -785,17 +785,17 @@ in
       type = lib.types.attrsOf lib.types.int;
       default = { };
       example = {
-        Mic = 100;
-        Chat = 80;
-        Music = 60;
-        Game = 75;
-        Console = 50;
-        System = 70;
-        Sample = 50;
-        Headphones = 85;
-        LineOut = 50;
+        mic = 255;
+        chat = 200;
+        music = 150;
+        game = 190;
+        console = 128;
+        system = 180;
+        sample = 128;
+        headphones = 220;
+        line-out = 128;
       };
-      description = "Channel volumes as percentages (0-100). Keys are channel names: Mic, Chat, Music, Game, Console, System, Sample, Headphones, MicMonitor, LineOut.";
+      description = "Channel volume levels (0-255). Keys are channel names: mic, chat, music, game, console, system, sample, headphones, mic-monitor, line-out.";
     };
 
     # --- Fader assignments ---
@@ -803,12 +803,12 @@ in
       type = lib.types.attrsOf lib.types.str;
       default = { };
       example = {
-        A = "Mic";
-        B = "Music";
-        C = "Chat";
-        D = "System";
+        a = "mic";
+        b = "music";
+        c = "chat";
+        d = "system";
       };
-      description = "Map faders (A, B, C, D) to channel names (Mic, Chat, Music, Game, Console, System, Sample, Headphones, MicMonitor, LineOut).";
+      description = "Map faders (a, b, c, d) to channel names (mic, chat, music, game, console, system, sample, headphones, mic-monitor, line-out).";
     };
 
     # --- Fader mute behaviour ---
@@ -816,21 +816,21 @@ in
       type = lib.types.attrsOf (lib.types.nullOr lib.types.str);
       default = { };
       example = {
-        A = "All";
-        B = "ToStream";
+        a = "all";
+        b = "to-stream";
       };
-      description = "Per-fader mute behaviour on single press. Keys: A, B, C, D. Values: All, ToStream, ToVoiceChat, ToPhones, ToLineOut. Hold always mutes to All.";
+      description = "Per-fader mute behaviour on single press. Keys: a, b, c, d. Values: all, to-stream, to-voice-chat, to-phones, to-line-out. Hold always mutes to all.";
     };
 
     # --- Fader mute state ---
     faderMuteState = lib.mkOption {
-      type = lib.types.attrsOf (lib.types.nullOr lib.types.bool);
+      type = lib.types.attrsOf (lib.types.nullOr lib.types.str);
       default = { };
       example = {
-        A = false;
-        C = true;
+        a = "unmuted";
+        c = "muted-to-all";
       };
-      description = "Per-fader mute state. Keys: A, B, C, D. Values: true (muted) or false (unmuted).";
+      description = "Per-fader mute state. Keys: a, b, c, d. Values: unmuted, muted-to-x, muted-to-all.";
     };
 
     # --- Fader scribble screens (full GoXLR only) ---
@@ -838,13 +838,13 @@ in
       type = lib.types.attrsOf scribbleSubmodule;
       default = { };
       example = {
-        A = {
+        a = {
           text = "Mic";
           icon = "microphone";
           invert = false;
         };
       };
-      description = "Per-fader scribble screen settings (full GoXLR only). Keys: A, B, C, D.";
+      description = "Per-fader scribble screen settings (full GoXLR only). Keys: a, b, c, d.";
     };
 
     # --- Routing matrix ---
@@ -852,21 +852,21 @@ in
       type = lib.types.attrsOf (lib.types.attrsOf lib.types.bool);
       default = { };
       example = {
-        Microphone = {
-          Headphones = true;
-          ChatMic = true;
-          BroadcastMix = true;
-          Sampler = false;
+        microphone = {
+          headphones = true;
+          chat-mic = true;
+          broadcast-mix = true;
+          sampler = false;
         };
-        Music = {
-          Headphones = true;
-          BroadcastMix = true;
+        music = {
+          headphones = true;
+          broadcast-mix = true;
         };
       };
       description = ''
         Audio routing matrix. Keys are input devices, values are attrsets of output devices to booleans.
-        Inputs: Microphone, Chat, Music, Game, Console, LineIn, System, Sample
-        Outputs: Headphones, BroadcastMix, ChatMic, Sampler, LineOut
+        Inputs: microphone, chat, music, game, console, line-in, system, sample
+        Outputs: headphones, broadcast-mix, chat-mic, sampler, line-out
       '';
     };
 
@@ -881,16 +881,16 @@ in
       gate = {
         threshold = mkNullInt "Noise gate threshold in dB (-59 to 0)";
         attenuation = mkNullInt "Noise gate attenuation percentage (0-100)";
-        attack = mkNullStr "Noise gate attack time (e.g., 10ms, 20ms, 30ms, 40ms, 50ms)";
-        release = mkNullStr "Noise gate release time (e.g., 10ms, 20ms, 30ms, 40ms, 50ms)";
+        attack = mkNullStr "Noise gate attack time (e.g., gate10ms, gate20ms, gate30ms, gate40ms, gate50ms)";
+        release = mkNullStr "Noise gate release time (e.g., gate10ms, gate20ms, gate30ms, gate40ms, gate50ms)";
         active = mkNullBool "Whether noise gate is active";
       };
 
       compressor = {
         threshold = mkNullInt "Compressor threshold in dB (-24 to 0)";
-        ratio = mkNullStr "Compressor ratio (e.g., Ratio1_0, Ratio1_1, ... Ratio20_0)";
-        attack = mkNullStr "Compressor attack time (e.g., 0ms, 2ms, 3ms, ... 20ms)";
-        release = mkNullStr "Compressor release time (e.g., 0ms, 15ms, 25ms, ... 1000ms)";
+        ratio = mkNullStr "Compressor ratio (e.g., ratio1-0, ratio1-1, ... ratio20-0)";
+        attack = mkNullStr "Compressor attack time (e.g., comp0ms, comp2ms, comp3ms, ... comp20ms)";
+        release = mkNullStr "Compressor release time (e.g., comp0ms, comp15ms, comp25ms, ... comp1000ms)";
         makeUp = mkNullInt "Compressor make-up gain in dB";
       };
 
@@ -898,26 +898,26 @@ in
         type = lib.types.attrsOf eqBandSubmodule;
         default = { };
         example = {
-          Equalizer90Hz = {
+          equalizer90-hz = {
             frequency = 90.0;
             gain = 3;
           };
-          Equalizer250Hz = {
+          equalizer250-hz = {
             gain = -2;
           };
         };
-        description = "Full GoXLR equaliser bands. Keys: Equalizer31Hz, Equalizer63Hz, Equalizer125Hz, Equalizer250Hz, Equalizer500Hz, Equalizer1KHz, Equalizer2KHz, Equalizer4KHz, Equalizer8KHz, Equalizer16KHz.";
+        description = "Full GoXLR equaliser bands. Keys: equalizer31-hz, equalizer63-hz, equalizer125-hz, equalizer250-hz, equalizer500-hz, equalizer1-k-hz, equalizer2-k-hz, equalizer4-k-hz, equalizer8-k-hz, equalizer16-k-hz.";
       };
 
       equaliserMini = lib.mkOption {
         type = lib.types.attrsOf eqBandSubmodule;
         default = { };
         example = {
-          Equalizer90Hz = {
+          equalizer90-hz = {
             gain = 3;
           };
         };
-        description = "GoXLR Mini equaliser bands. Keys: Equalizer90Hz, Equalizer250Hz, Equalizer500Hz, Equalizer1KHz, Equalizer3KHz, Equalizer8KHz.";
+        description = "GoXLR Mini equaliser bands. Keys: equalizer90-hz, equalizer250-hz, equalizer500-hz, equalizer1-k-hz, equalizer3-k-hz, equalizer8-k-hz.";
       };
     };
 
@@ -929,39 +929,39 @@ in
         type = lib.types.attrsOf lib.types.int;
         default = { };
         example = {
-          Mic = 100;
-          Chat = 80;
+          mic = 255;
+          chat = 200;
         };
-        description = "Submix channel volumes as percentages (0-100). Same channel names as main volumes.";
+        description = "Submix channel volume levels (0-255). Same channel names as main volumes (lowercase-hyphenated).";
       };
 
       linked = lib.mkOption {
         type = lib.types.attrsOf (lib.types.nullOr lib.types.bool);
         default = { };
         example = {
-          Mic = true;
-          Chat = false;
+          mic = true;
+          chat = false;
         };
-        description = "Whether channel volumes are linked to submix volumes. Keys are channel names.";
+        description = "Whether channel volumes are linked to submix volumes. Keys are lowercase-hyphenated channel names.";
       };
 
       outputMix = lib.mkOption {
         type = lib.types.attrsOf (lib.types.nullOr lib.types.str);
         default = { };
         example = {
-          Headphones = "A";
-          BroadcastMix = "B";
+          headphones = "a";
+          broadcast-mix = "b";
         };
-        description = "Output device mix assignment. Keys are output devices, values are mix names (A or B).";
+        description = "Output device mix assignment. Keys are output devices (lowercase-hyphenated), values are mix names (a or b).";
       };
 
-      monitorMix = mkNullStr "Output device to monitor (e.g., Headphones, BroadcastMix, ChatMic, Sampler, LineOut)";
+      monitorMix = mkNullStr "Output device to monitor (e.g., headphones, broadcast-mix, chat-mic, sampler, line-out)";
     };
 
     # --- Effects panel ---
     effects = {
       enabled = mkNullBool "Enable or disable the FX panel";
-      activePreset = mkNullStr "Set the active effect preset: Preset1, Preset2, Preset3, Preset4, Preset5, Preset6";
+      activePreset = mkNullStr "Set the active effect preset: preset1, preset2, preset3, preset4, preset5, preset6";
       loadPreset = mkNullStr "Load an effect preset by name";
       renameActivePreset = mkNullStr "Rename the currently active effect preset";
       saveActivePreset = lib.mkOption {
@@ -971,7 +971,7 @@ in
       };
 
       reverb = {
-        style = mkNullStr "Reverb style: Library, DarkBloom, MusicClub, RealPlate, Chapel, HockeyArena";
+        style = mkNullStr "Reverb style: library, dark-bloom, music-club, real-plate, chapel, hockey-arena";
         amount = mkNullInt "Reverb amount (0-100)";
         decay = mkNullInt "Reverb decay (milliseconds)";
         earlyLevel = mkNullInt "Reverb early level (dB)";
@@ -986,7 +986,7 @@ in
       };
 
       echo = {
-        style = mkNullStr "Echo style: Quarter, Eighth, Triplet, PingPong, ClassicSlap, MultiTap";
+        style = mkNullStr "Echo style: quarter, eighth, triplet, ping-pong, classic-slap, multi-tap";
         amount = mkNullInt "Echo amount (0-100)";
         feedback = mkNullInt "Echo feedback (0-100)";
         tempo = mkNullInt "Echo tempo in ms (only for ClassicSlap style)";
@@ -997,42 +997,42 @@ in
       };
 
       pitch = {
-        style = mkNullStr "Pitch style: Narrow, Wide";
+        style = mkNullStr "Pitch style: narrow, wide";
         amount = mkNullInt "Pitch amount (-24 to 24)";
         character = mkNullInt "Pitch character (0-100)";
       };
 
       gender = {
-        style = mkNullStr "Gender style: Narrow, Medium, Wide";
+        style = mkNullStr "Gender style: narrow, medium, wide";
         amount = mkNullInt "Gender amount (-12 to 12)";
       };
 
       megaphone = {
-        style = mkNullStr "Megaphone style: Megaphone, Radio, OnThePhone, Overdrive, BuzzCutt, Tweed, HiFi, Television";
+        style = mkNullStr "Megaphone style: megaphone, radio, on-the-phone, overdrive, buzz-cutt, tweed, hi-fi, television";
         amount = mkNullInt "Megaphone amount (0-100)";
         postGain = mkNullInt "Megaphone post-processing gain (dB)";
         enabled = mkNullBool "Enable or disable the megaphone button";
       };
 
       robot = {
-        style = mkNullStr "Robot style: Robot1, Robot2, Robot3";
+        style = mkNullStr "Robot style: robot1, robot2, robot3";
         ranges = lib.mkOption {
           type = lib.types.attrsOf robotRangeSubmodule;
           default = { };
           example = {
-            Low = {
+            low = {
               gain = 5;
               frequency = 40;
               bandwidth = 20;
             };
-            Medium = {
+            medium = {
               gain = 3;
             };
-            High = {
+            high = {
               gain = -2;
             };
           };
-          description = "Per-range robot settings. Keys: Low, Medium, High.";
+          description = "Per-range robot settings. Keys: low, medium, high.";
         };
         waveform = mkNullInt "Robot waveform (0-255)";
         pulseWidth = mkNullInt "Robot pulse width (0-100)";
@@ -1042,11 +1042,11 @@ in
       };
 
       hardTune = {
-        style = mkNullStr "HardTune style: Natural, Medium, Hard";
+        style = mkNullStr "HardTune style: natural, medium, hard";
         amount = mkNullInt "HardTune amount (0-100)";
         rate = mkNullInt "HardTune rate (0-100)";
         window = mkNullInt "HardTune window (0-600)";
-        source = mkNullStr "HardTune source: All, Music, Game, LineIn, System";
+        source = mkNullStr "HardTune source: all, music, game, line-in, system";
         enabled = mkNullBool "Enable or disable the hard-tune button";
       };
     };
@@ -1076,8 +1076,8 @@ in
     # --- Cough button ---
     coughButton = {
       isHold = mkNullBool "Whether cough button only mutes while held (not toggled)";
-      muteBehaviour = mkNullStr "Where a press mutes to: All, ToStream, ToVoiceChat, ToPhones, ToLineOut";
-      muteState = mkNullBool "Whether cough button is muted (true) or unmuted (false)";
+      muteBehaviour = mkNullStr "Where a press mutes to: all, to-stream, to-voice-chat, to-phones, to-line-out";
+      muteState = mkNullStr "Cough button mute state: unmuted, muted-to-x, muted-to-all";
     };
 
     # --- Bleep button ---
@@ -1097,14 +1097,14 @@ in
       global = mkNullStr "Global colour in hex [RRGGBB]";
 
       animation = {
-        mode = mkNullStr "Animation mode: None, RetroRainbow, RainbowDark, RainbowBright, Simple, Ripple";
+        mode = mkNullStr "Animation mode: none, retro-rainbow, rainbow-dark, rainbow-bright, simple, ripple";
         mod1 = mkNullInt "Animation mod1 value (0-255)";
         mod2 = mkNullInt "Animation mod2 value (0-255)";
-        waterfall = mkNullStr "Waterfall direction: Down, Up, Off";
+        waterfall = mkNullStr "Waterfall direction: down, up, off";
       };
 
       fadersAll = {
-        display = mkNullStr "Display style for all faders: Gradient, Meter, TwoColour";
+        display = mkNullStr "Display style for all faders: two-colour, gradient, meter, gradient-meter";
         top = mkNullStr "Top colour for all faders [RRGGBB]";
         bottom = mkNullStr "Bottom colour for all faders [RRGGBB]";
       };
@@ -1113,31 +1113,31 @@ in
         type = lib.types.attrsOf faderLightingSubmodule;
         default = { };
         example = {
-          A = {
+          a = {
             top = "00FFFF";
             bottom = "000000";
-            display = "TwoColour";
+            display = "two-colour";
           };
         };
-        description = "Per-fader lighting. Keys: A, B, C, D.";
+        description = "Per-fader lighting. Keys: a, b, c, d.";
       };
 
       buttons = lib.mkOption {
         type = lib.types.attrsOf buttonLightingSubmodule;
         default = { };
-        description = "Per-button lighting. Keys are button names (e.g., Fader1Mute, EffectSelect1, etc.).";
+        description = "Per-button lighting. Keys are button names (e.g., fader1-mute, effect-select1, cough, etc.).";
       };
 
       buttonGroups = lib.mkOption {
         type = lib.types.attrsOf buttonLightingSubmodule;
         default = { };
         example = {
-          FaderMute = {
+          fader-mute = {
             colour = "FF0000";
-            offStyle = "Dimmed";
+            offStyle = "dimmed";
           };
         };
-        description = "Lighting for groups of buttons. Keys are group names (e.g., FaderMute, EffectSelector, EffectTypes, SamplerGroup).";
+        description = "Lighting for groups of buttons. Keys are group names (e.g., fader-mute, effect-selector, effect-types, sampler-group).";
       };
 
       simple = lib.mkOption {
@@ -1149,7 +1149,7 @@ in
       encoders = lib.mkOption {
         type = lib.types.attrsOf encoderLightingSubmodule;
         default = { };
-        description = "Encoder lighting. Keys are encoder names (e.g., Pitch, Gender, Reverb, Echo).";
+        description = "Encoder lighting. Keys are encoder names (e.g., reverb, echo, pitch, gender).";
       };
     };
 
@@ -1158,7 +1158,7 @@ in
       type = lib.types.listOf lib.types.str;
       default = [ ];
       example = [
-        "goxlr-client effects reverb style Library"
+        "goxlr-client effects reverb style library"
       ];
       description = "Additional raw goxlr-client commands to run after all declarative settings are applied.";
     };
@@ -1167,12 +1167,12 @@ in
   config = lib.mkIf cfg.enable {
     assertions = [
       {
-        assertion = builtins.all (v: v >= 0 && v <= 100) (builtins.attrValues cfg.volumes);
-        message = "All GoXLR volume values must be between 0 and 100";
+        assertion = builtins.all (v: v >= 0 && v <= 255) (builtins.attrValues cfg.volumes);
+        message = "All GoXLR volume values must be between 0 and 255";
       }
       {
-        assertion = builtins.all (v: v >= 0 && v <= 100) (builtins.attrValues cfg.submix.volumes);
-        message = "All GoXLR submix volume values must be between 0 and 100";
+        assertion = builtins.all (v: v >= 0 && v <= 255) (builtins.attrValues cfg.submix.volumes);
+        message = "All GoXLR submix volume values must be between 0 and 255";
       }
     ];
 
