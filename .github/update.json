@@ -1,0 +1,13 @@
+{
+  "package": "goxlr",
+  "upstream": {
+    "type": "none"
+  },
+  "packageFile": null,
+  "hashes": [],
+  "verify": {
+    "binary": null,
+    "args": null,
+    "check": "eval"
+  }
+}
