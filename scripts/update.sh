@@ -103,7 +103,7 @@ case "$UPSTREAM_TYPE" in
   gitlab-tag)
     HOST=$(echo "$CONFIG" | jq -r '.upstream.host // "gitlab.com"')
     PROJECT=$(echo "$CONFIG" | jq -r '.upstream.project')
-    ENCODED=$(echo "$PROJECT" | sed 's|/|%2F|g')
+    ENCODED="${PROJECT//\//%2F}"
     LATEST_TAG=$(fetch_latest "curl -sfL 'https://$HOST/api/v4/projects/$ENCODED/repository/tags?per_page=1' | jq -r '.[0].name'") || {
       warn "Failed to fetch tags from $PROJECT"
       output "updated" "false"
@@ -131,7 +131,7 @@ case "$UPSTREAM_TYPE" in
   gitlab-commit)
     HOST=$(echo "$CONFIG" | jq -r '.upstream.host // "gitlab.com"')
     PROJECT=$(echo "$CONFIG" | jq -r '.upstream.project')
-    ENCODED=$(echo "$PROJECT" | sed 's|/|%2F|g')
+    ENCODED="${PROJECT//\//%2F}"
     BRANCH=$(echo "$CONFIG" | jq -r '.upstream.branch // "main"')
     LATEST_COMMIT=$(fetch_latest "curl -sfL 'https://$HOST/api/v4/projects/$ENCODED/repository/branches/$BRANCH' | jq -r '.commit.id'") || {
       warn "Failed to fetch from GitLab $PROJECT"
@@ -269,13 +269,18 @@ if [ -n "$VERIFY_BINARY" ]; then
 elif [ "$VERIFY_CHECK" = "elf" ]; then
   log "Step 3/4: ELF verification"
   nix build .#default
-  FOUND=$(find result/bin/ -type f -executable 2>/dev/null | head -1)
+  FOUND=$(find result/bin/ \( -type f -o -type l \) -executable 2>/dev/null | head -1)
   if [ -z "$FOUND" ]; then
     FOUND=$(find result/lib/ -name "*.so" 2>/dev/null | head -1)
   fi
   if [ -n "$FOUND" ]; then
     file "$FOUND" | grep -q ELF || { err "Not an ELF binary: $FOUND"; output "error_type" "verification-error"; exit 1; }
   fi
+elif [ "$VERIFY_CHECK" = "wrapper" ]; then
+  log "Step 3/4: Wrapper verification"
+  nix build .#default
+  FOUND=$(find result/bin/ \( -type f -o -type l \) 2>/dev/null | head -1)
+  [ -n "$FOUND" ] && [ -x "$FOUND" ] || { err "No executable wrapper found"; output "error_type" "verification-error"; exit 1; }
 elif [ "$VERIFY_CHECK" = "eval" ]; then
   log "Step 3/4: Eval verification (already passed in step 1)"
 elif [ "$VERIFY_CHECK" = "desktop" ]; then
