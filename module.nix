@@ -587,7 +587,7 @@ let
 
   # --- Bleep volume ---
   bleepCmds = lib.optionals (cfg.bleepVolume != null) [
-    (mkDeviceCmd "bleep-volume ${toString cfg.bleepVolume}")
+    (mkDeviceCmd "bleep-volume -- ${toString cfg.bleepVolume}")
   ];
 
   # --- Device settings commands ---
