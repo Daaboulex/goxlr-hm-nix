@@ -1080,7 +1080,7 @@ in
     };
 
     # --- Bleep button ---
-    bleepVolume = mkNullInt "Bleep button volume (0-100)";
+    bleepVolume = mkNullOpt (lib.types.ints.between 0 100) "Bleep button volume (0-100 percent)";
 
     # --- Device settings ---
     settings = {
