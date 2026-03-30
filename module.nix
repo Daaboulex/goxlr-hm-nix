@@ -1183,6 +1183,11 @@ in
         Type = "oneshot";
         RemainAfterExit = true;
         ExecStart = "${applyScript}";
+        # The daemon starts via XDG autostart (app-goxlr\x2ddaemon@autostart.service)
+        # with no guaranteed ordering relative to this service. Retry on failure so
+        # the mixer state is applied once the daemon and device are actually ready.
+        Restart = "on-failure";
+        RestartSec = 10;
       };
       Install = {
         WantedBy = [ "graphical-session.target" ];
