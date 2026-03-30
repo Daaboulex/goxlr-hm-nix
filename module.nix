@@ -118,11 +118,12 @@ let
   );
 
   # --- Routing commands ---
+  # GoXLR Mini has fewer routes than Full — tolerate "Invalid Route" errors
   routingCmds = lib.concatLists (
     lib.mapAttrsToList (
       input: outputs:
       lib.mapAttrsToList (
-        output: enabled: mkDeviceCmd "router ${input} ${output} ${lib.boolToString enabled}"
+        output: enabled: mkDeviceCmd "router ${input} ${output} ${lib.boolToString enabled} || true"
       ) outputs
     ) cfg.routing
   );
@@ -1178,6 +1179,10 @@ in
       Unit = {
         Description = "Apply declarative GoXLR mixer state";
         After = [ "graphical-session.target" ];
+        # Stop retrying after 5 attempts (50s window) — if the daemon isn't up
+        # by then, something else is wrong. Prevents infinite restart loops.
+        StartLimitBurst = 5;
+        StartLimitIntervalSec = 50;
       };
       Service = {
         Type = "oneshot";
