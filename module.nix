@@ -488,17 +488,19 @@ let
   animationCmds =
     let
       a = cfg.lighting.animation;
+      hasAnimation = a.mode != null && a.mode != "none";
     in
     lib.optionals (a.mode != null) [
       (mkDeviceCmd "lighting animation mode ${a.mode}")
     ]
-    ++ lib.optionals (a.mod1 != null) [
+    # mod1, mod2, waterfall are only valid when an animation mode is active
+    ++ lib.optionals (hasAnimation && a.mod1 != null) [
       (mkDeviceCmd "lighting animation mod1 ${toString a.mod1}")
     ]
-    ++ lib.optionals (a.mod2 != null) [
+    ++ lib.optionals (hasAnimation && a.mod2 != null) [
       (mkDeviceCmd "lighting animation mod2 ${toString a.mod2}")
     ]
-    ++ lib.optionals (a.waterfall != null) [
+    ++ lib.optionals (hasAnimation && a.waterfall != null) [
       (mkDeviceCmd "lighting animation water-fall ${a.waterfall}")
     ];
 
