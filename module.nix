@@ -1200,5 +1200,32 @@ in
         WantedBy = [ "graphical-session.target" ];
       };
     };
+
+    # Re-apply GoXLR state after system wake — the daemon reloads profiles on wake,
+    # reverting any settings that differ from the profile files.
+    # Uses a path unit that watches for the goxlr-daemon to write its wake backup,
+    # which triggers a re-apply of the declarative state.
+    systemd.user.services.goxlr-apply-wake = lib.mkIf (allCmds != [ ]) {
+      Unit = {
+        Description = "Re-apply GoXLR mixer state after wake";
+      };
+      Service = {
+        Type = "oneshot";
+        ExecStartPre = "${pkgs.coreutils}/bin/sleep 3";
+        ExecStart = "${applyScript}";
+      };
+    };
+
+    systemd.user.paths.goxlr-apply-wake = lib.mkIf (allCmds != [ ]) {
+      Unit = {
+        Description = "Watch for GoXLR profile reload (triggers re-apply after wake)";
+      };
+      Path = {
+        PathModified = "%h/.local/share/goxlr-utility/backups";
+      };
+      Install = {
+        WantedBy = [ "graphical-session.target" ];
+      };
+    };
   };
 }
