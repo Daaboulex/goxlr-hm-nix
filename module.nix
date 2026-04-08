@@ -657,6 +657,59 @@ let
     ++ lightingEncoderCmds
     ++ cfg.extraCommands;
 
+  # --- Power action commands (jq patch for settings.json) ---
+  mkPowerActionJson =
+    action:
+    let
+      a = cfg.powerActions.${action};
+    in
+    lib.optionals (a.profile != null) [ ''{"LoadProfile":["${a.profile}",false]}'' ]
+    ++ lib.optionals (a.micProfile != null) [ ''{"LoadMicProfile":["${a.micProfile}",false]}'' ]
+    ++ lib.optionals (a.loadColours != null) [ ''{"LoadProfileColours":"${a.loadColours}"}'' ];
+
+  mkWakeActionJson =
+    let
+      a = cfg.powerActions.wake;
+      reloadCmd = lib.optionals a.reloadSettings [ ''{"ReloadSettings":[]}'' ];
+    in
+    reloadCmd
+    ++ lib.optionals (a.micProfile != null) [ ''{"LoadMicProfile":["${a.micProfile}",false]}'' ]
+    ++ lib.optionals (a.profile != null) [ ''{"LoadProfile":["${a.profile}",false]}'' ]
+    ++ lib.optionals (a.loadColours != null) [ ''{"LoadProfileColours":"${a.loadColours}"}'' ];
+
+  hasPowerActions =
+    cfg.powerActions.shutdown.profile != null
+    || cfg.powerActions.shutdown.micProfile != null
+    || cfg.powerActions.shutdown.loadColours != null
+    || cfg.powerActions.sleep.profile != null
+    || cfg.powerActions.sleep.micProfile != null
+    || cfg.powerActions.sleep.loadColours != null
+    || cfg.powerActions.wake.profile != null
+    || cfg.powerActions.wake.micProfile != null
+    || cfg.powerActions.wake.loadColours != null
+    || cfg.powerActions.wake.reloadSettings;
+
+  shutdownJson = "[${lib.concatStringsSep "," (mkPowerActionJson "shutdown")}]";
+  sleepJson = "[${lib.concatStringsSep "," (mkPowerActionJson "sleep")}]";
+  wakeJson = "[${lib.concatStringsSep "," mkWakeActionJson}]";
+
+  # jq filter — targets a specific device serial, or first device if unspecified
+  deviceJqPath =
+    if cfg.device != null then ".devices.\"${cfg.device}\"" else "(.devices | to_entries[0].value)";
+
+  powerActionsScript = lib.optionalString hasPowerActions ''
+    # Patch daemon settings.json with declarative power actions
+    _settings="$HOME/.config/goxlr-utility/settings.json"
+    if [ -f "$_settings" ]; then
+      ${pkgs.jq}/bin/jq '
+        ${deviceJqPath}.shutdown_commands = ${shutdownJson}
+        | ${deviceJqPath}.sleep_commands = ${sleepJson}
+        | ${deviceJqPath}.wake_commands = ${wakeJson}
+      ' "$_settings" > "$_settings.tmp" && mv "$_settings.tmp" "$_settings"
+      echo "Power actions patched in settings.json"
+    fi
+  '';
+
   applyScript = pkgs.writeShellScript "goxlr-apply" ''
     set -euo pipefail
     export PATH="${lib.makeBinPath [ pkgs.goxlr-utility ]}:$PATH"
@@ -676,9 +729,27 @@ let
     # Small delay for device initialization after daemon is up
     sleep 1
 
+    ${powerActionsScript}
     ${lib.concatStringsSep "\n" allCmds}
 
     echo "GoXLR state applied (${toString (builtins.length allCmds)} commands)"
+  '';
+
+  wakeGuardScript = pkgs.writeShellScript "goxlr-apply-wake-guard" ''
+    set -euo pipefail
+
+    # Skip re-apply if a manual toggle happened recently (< 15s ago).
+    # goxlr-toggle writes this inhibit file before switching profiles.
+    inhibit="/tmp/goxlr-toggle-inhibit"
+    if [ -f "$inhibit" ]; then
+      age=$(( $(${pkgs.coreutils}/bin/date +%s) - $(${pkgs.coreutils}/bin/stat -c %Y "$inhibit") ))
+      if [ "$age" -lt 15 ]; then
+        echo "Skipping re-apply (toggle inhibit active, ''${age}s old)"
+        exit 0
+      fi
+    fi
+
+    exec ${applyScript}
   '';
 
   # Nullable option helpers
@@ -1163,6 +1234,30 @@ in
       ];
       description = "Additional raw goxlr-client commands to run after all declarative settings are applied.";
     };
+
+    # --- Power actions (shutdown / sleep / wake) ---
+    powerActions = {
+      shutdown = {
+        profile = mkNullStr "Device profile to load on shutdown";
+        micProfile = mkNullStr "Mic profile to load on shutdown";
+        loadColours = mkNullStr "Profile whose colours to load on shutdown";
+      };
+      sleep = {
+        profile = mkNullStr "Device profile to load when going to sleep";
+        micProfile = mkNullStr "Mic profile to load when going to sleep";
+        loadColours = mkNullStr "Profile whose colours to load when going to sleep";
+      };
+      wake = {
+        reloadSettings = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to reload daemon settings on wake";
+        };
+        profile = mkNullStr "Device profile to load on wake";
+        micProfile = mkNullStr "Mic profile to load on wake";
+        loadColours = mkNullStr "Profile whose colours to load on wake";
+      };
+    };
   };
 
   config = lib.mkIf cfg.enable {
@@ -1205,6 +1300,8 @@ in
     # reverting any settings that differ from the profile files.
     # Uses a path unit that watches for the goxlr-daemon to write its wake backup,
     # which triggers a re-apply of the declarative state.
+    # The guard script skips re-apply when a manual toggle happened recently
+    # (goxlr-toggle writes /tmp/goxlr-toggle-inhibit before switching profiles).
     systemd.user.services.goxlr-apply-wake = lib.mkIf (allCmds != [ ]) {
       Unit = {
         Description = "Re-apply GoXLR mixer state after wake";
@@ -1212,7 +1309,7 @@ in
       Service = {
         Type = "oneshot";
         ExecStartPre = "${pkgs.coreutils}/bin/sleep 3";
-        ExecStart = "${applyScript}";
+        ExecStart = "${wakeGuardScript}";
       };
     };
 
