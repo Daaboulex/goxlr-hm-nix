@@ -1,5 +1,7 @@
 # goxlr-hm-nix
 
+[![CI](https://github.com/Daaboulex/goxlr-hm-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/Daaboulex/goxlr-hm-nix/actions/workflows/ci.yml)
+
 Home Manager module for declarative GoXLR / GoXLR Mini mixer configuration via `goxlr-client`.
 
 ## What it does
