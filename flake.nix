@@ -31,7 +31,7 @@
       homeManagerModules.default = import ./module.nix;
       homeManagerModules.goxlr = import ./module.nix;
 
-      formatter = forAllSystems ({ pkgs, ... }: pkgs.nixfmt-rfc-style);
+      formatter = forAllSystems ({ pkgs, ... }: pkgs.nixfmt);
 
       checks = forAllSystems (
         { system, ... }:
