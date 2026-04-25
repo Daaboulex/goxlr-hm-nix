@@ -9,6 +9,22 @@
 
 Home Manager module for declarative GoXLR / GoXLR Mini mixer configuration via `goxlr-client`.
 
+## Upstream
+
+This is a **standalone Home Manager module** — original code, no upstream fork. It wraps the `goxlr-client` CLI shipped by the GoXLR Utility daemon, which is **not** packaged here:
+
+- **GoXLR Utility (daemon + `goxlr-client`)**: [github.com/GoXLR-on-Linux/goxlr-utility](https://github.com/GoXLR-on-Linux/goxlr-utility) (MIT)
+- **System-level GoXLR module (NixOS)**: lives in the main config flake — handles daemon setup, udev, UCM patches, PipeWire integration
+- **This repo**: only the user-facing mixer-state HM module + `export-config.sh` snapshot tool
+
+## Components
+
+| Component | Type | Description |
+|---|---|---|
+| `homeManagerModules.default` | HM module | Declarative `programs.goxlr.*` options (volumes, faders, routing, mic, submix, effects, sampler, lighting, settings) |
+| `goxlr-apply.service` | systemd user unit | Waits for `goxlr-daemon`, then applies declared mixer state via `goxlr-client` on login |
+| `export-config.sh` | shell script | Reads `goxlr-client --status-json` and emits a ready-to-paste `programs.goxlr` Nix attrset |
+
 ## What it does
 
 Applies mixer state (volumes, fader assignments, routing, microphone settings, effects, sampler, submix, lighting, animation, device settings, profiles) at login via a systemd user service that waits for `goxlr-daemon`.
@@ -278,6 +294,18 @@ bash export-config.sh > my-goxlr-config.nix
 
 This reads `goxlr-client --status-json`, converts all values to the correct format (volumes 0-100, kebab-case names), and outputs valid Nix ready to paste into your `programs.goxlr` block. Detects GoXLR Mini vs Full automatically and omits unavailable features. Requires `goxlr-client` and `jq`.
 
+## Development
+
+```bash
+git clone https://github.com/Daaboulex/goxlr-hm-nix
+cd goxlr-hm-nix
+nix develop                       # enter dev shell, installs pre-commit hooks
+nix fmt                           # format flake + module
+nix flake check --no-build        # eval check (canonical CI gate, module-only repo)
+```
+
+CI runs eval + format on every push; weekly maintenance updates `flake.lock`. No upstream-tracking workflow — this is original code.
+
 ## License
 
-MIT
+This module is [MIT](./LICENSE) licensed. The upstream GoXLR Utility (daemon + `goxlr-client`) is [MIT](https://github.com/GoXLR-on-Linux/goxlr-utility/blob/main/LICENSE).
