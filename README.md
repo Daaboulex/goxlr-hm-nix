@@ -1,21 +1,21 @@
 # goxlr-hm-nix
 
-[![CI](https://github.com/Daaboulex/goxlr-hm-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/Daaboulex/goxlr-hm-nix/actions/workflows/ci.yml)
-[![License](https://img.shields.io/github/license/Daaboulex/goxlr-hm-nix)](./LICENSE)
-[![NixOS](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
-[![Last commit](https://img.shields.io/github/last-commit/Daaboulex/goxlr-hm-nix)](https://github.com/Daaboulex/goxlr-hm-nix/commits)
-[![Stars](https://img.shields.io/github/stars/Daaboulex/goxlr-hm-nix?style=flat)](https://github.com/Daaboulex/goxlr-hm-nix/stargazers)
-[![Issues](https://img.shields.io/github/issues/Daaboulex/goxlr-hm-nix)](https://github.com/Daaboulex/goxlr-hm-nix/issues)
+<!-- BEGIN generated:badges -->
+[![NixOS unstable](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+<!-- END generated:badges -->
 
 Home Manager module for declarative GoXLR / GoXLR Mini mixer configuration via `goxlr-client`.
 
+<!-- BEGIN generated:upstream -->
 ## Upstream
 
-This is a **standalone Home Manager module** — original code, no upstream fork. It wraps the `goxlr-client` CLI shipped by the GoXLR Utility daemon, which is **not** packaged here:
-
-- **GoXLR Utility (daemon + `goxlr-client`)**: [github.com/GoXLR-on-Linux/goxlr-utility](https://github.com/GoXLR-on-Linux/goxlr-utility) (MIT)
-- **System-level GoXLR module (NixOS)**: lives in the main config flake — handles daemon setup, udev, UCM patches, PipeWire integration
-- **This repo**: only the user-facing mixer-state HM module + `export-config.sh` snapshot tool
+| | |
+|---|---|
+| **Project** | Original code (no upstream) |
+| **License** | N/A |
+| **Tracked** | N/A |
+<!-- END generated:upstream -->
 
 ## Components
 
@@ -58,6 +58,27 @@ home.file = {
 ```
 
 The `profile` and `micProfile` options load a named profile on login — the profile files must already exist on disk.
+
+<!-- BEGIN generated:installation -->
+## Installation
+
+Add as a flake input:
+
+```nix
+{
+  inputs.goxlr-hm = {
+    url = "github:Daaboulex/goxlr-hm-nix";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+}
+```
+
+Import the Home Manager module:
+
+```nix
+home-manager.sharedModules = [ inputs.goxlr-hm.homeManagerModules.default ];
+```
+<!-- END generated:installation -->
 
 ## Usage
 
@@ -306,6 +327,15 @@ nix flake check --no-build        # eval check (canonical CI gate, module-only r
 
 CI runs eval + format on every push; weekly maintenance updates `flake.lock`. No upstream-tracking workflow — this is original code.
 
+<!-- BEGIN generated:options -->
+<!-- END generated:options -->
+
 ## License
 
 This module is [MIT](./LICENSE) licensed. The upstream GoXLR Utility (daemon + `goxlr-client`) is [MIT](https://github.com/GoXLR-on-Linux/goxlr-utility/blob/main/LICENSE).
+
+<!-- BEGIN generated:footer -->
+---
+
+*Maintained as part of the [Daaboulex](https://github.com/Daaboulex) NixOS ecosystem.*
+<!-- END generated:footer -->
