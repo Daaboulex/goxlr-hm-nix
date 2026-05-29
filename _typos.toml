@@ -1,0 +1,5 @@
+# typos allowlist — GoXLR-client command vocabulary, not misspellings.
+# "rto" is a goxlr-client reverb parameter token (e.g. effects reverb ... rto).
+[default.extend-words]
+rto = "rto"
+Rto = "Rto"

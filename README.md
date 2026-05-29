@@ -16,6 +16,7 @@ Home Manager module for declarative GoXLR / GoXLR Mini mixer configuration via `
 | **Project** | Original code (no upstream) |
 | **License** | N/A |
 | **Tracked** | N/A |
+
 <!-- END generated:upstream -->
 
 ## Components
@@ -79,6 +80,7 @@ Import the Home Manager module:
 ```nix
 home-manager.sharedModules = [ inputs.goxlr-hm.homeManagerModules.default ];
 ```
+
 <!-- END generated:installation -->
 
 ## Usage
