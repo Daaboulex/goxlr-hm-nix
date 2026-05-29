@@ -3,64 +3,42 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-parts.url = "github:hercules-ci/flake-parts";
     git-hooks = {
       url = "github:cachix/git-hooks.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    std = {
+      url = "github:Daaboulex/nix-packaging-standard?ref=v2.2.1";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.git-hooks.follows = "git-hooks";
+    };
   };
 
   outputs =
-    {
-      self,
-      nixpkgs,
-      git-hooks,
-    }:
-    let
-      supportedSystems = [ "x86_64-linux" ];
-      forAllSystems =
-        fn:
-        nixpkgs.lib.genAttrs supportedSystems (
-          system:
-          fn {
-            pkgs = import nixpkgs { localSystem.system = system; };
-            inherit system;
-          }
-        );
-    in
-    {
-      homeManagerModules.default = import ./module.nix;
-      homeManagerModules.goxlr = import ./module.nix;
+    inputs@{ flake-parts, ... }:
+    flake-parts.lib.mkFlake { inherit inputs; } {
+      systems = [ "x86_64-linux" ];
 
-      formatter = forAllSystems ({ pkgs, ... }: pkgs.nixfmt);
+      imports = [ inputs.std.flakeModules.base ];
 
-      checks = forAllSystems (
+      perSystem =
         { system, ... }:
         {
-          pre-commit-check = git-hooks.lib.${system}.run {
-            src = self;
-            hooks.nixfmt-rfc-style.enable = true;
-            hooks.typos.enable = true;
-            hooks.rumdl.enable = true;
-            hooks.check-readme-sections = {
-              enable = true;
-              name = "check-readme-sections";
-              entry = "bash scripts/check-readme-sections.sh";
-              files = "README\.md$";
-              language = "system";
-            };
+          # Instantiate the HM module (enabled) so activation-time errors surface.
+          checks.module-eval = inputs.std.lib.homeModuleCheck {
+            inherit (inputs) nixpkgs home-manager;
+            inherit system;
+            module = ./module.nix;
+            config.programs.goxlr.enable = true;
           };
-        }
-      );
+        };
 
-      devShells = forAllSystems (
-        { pkgs, system }:
-        {
-          default = pkgs.mkShell {
-            inherit (self.checks.${system}.pre-commit-check) shellHook;
-            buildInputs = self.checks.${system}.pre-commit-check.enabledPackages;
-            packages = with pkgs; [ nil ];
-          };
-        }
-      );
+      flake.homeManagerModules.default = import ./module.nix;
+      flake.homeManagerModules.goxlr = import ./module.nix;
     };
 }
