@@ -9,5 +9,17 @@
     "binary": null,
     "args": null,
     "check": "eval"
-  }
+  },
+  "description": "GoXLR Utility Home Manager module for NixOS - declarative mixer state (faders, routing, mic, effects) via goxlr-client",
+  "topics": [
+    "nix",
+    "nixos",
+    "flake",
+    "home-manager",
+    "goxlr",
+    "goxlr-utility",
+    "audio",
+    "mixer",
+    "declarative"
+  ]
 }
