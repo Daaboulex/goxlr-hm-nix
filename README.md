@@ -338,7 +338,4 @@ CI runs eval + format on every push; weekly maintenance updates `flake.lock`. No
 This module is [MIT](./LICENSE) licensed. The upstream GoXLR Utility (daemon + `goxlr-client`) is [MIT](https://github.com/GoXLR-on-Linux/goxlr-utility/blob/main/LICENSE).
 
 <!-- BEGIN generated:footer -->
----
-
-*Maintained as part of the [Daaboulex](https://github.com/Daaboulex) NixOS ecosystem.*
 <!-- END generated:footer -->

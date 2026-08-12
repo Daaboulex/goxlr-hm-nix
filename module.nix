@@ -1001,8 +1001,8 @@ in
         type = lib.types.attrsOf lib.types.int;
         default = { };
         example = {
-          mic = 255;
-          chat = 200;
+          mic = 100;
+          chat = 75;
         };
         description = "Submix channel volume levels (0-100 percent). Same channel names as main volumes (lowercase-hyphenated).";
       };
