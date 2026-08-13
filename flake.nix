@@ -41,7 +41,7 @@
           };
         };
 
-      flake.homeManagerModules.default = import ./module.nix;
-      flake.homeManagerModules.goxlr = import ./module.nix;
+      flake.homeModules.default = import ./module.nix;
+      flake.homeModules.goxlr = import ./module.nix;
     };
 }

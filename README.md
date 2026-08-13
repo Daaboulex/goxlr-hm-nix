@@ -23,7 +23,7 @@ Home Manager module for declarative GoXLR / GoXLR Mini mixer configuration via `
 
 | Component | Type | Description |
 |---|---|---|
-| `homeManagerModules.default` | HM module | Declarative `programs.goxlr.*` options (volumes, faders, routing, mic, submix, effects, sampler, lighting, settings) |
+| `homeModules.default` | HM module | Declarative `programs.goxlr.*` options (volumes, faders, routing, mic, submix, effects, sampler, lighting, settings) |
 | `goxlr-apply.service` | systemd user unit | Waits for `goxlr-daemon`, then applies declared mixer state via `goxlr-client` on login |
 | `export-config.sh` | shell script | Reads `goxlr-client --status-json` and emits a ready-to-paste `programs.goxlr` Nix attrset |
 
@@ -78,7 +78,7 @@ Add as a flake input:
 Import the Home Manager module:
 
 ```nix
-home-manager.sharedModules = [ inputs.goxlr-hm.homeManagerModules.default ];
+home-manager.sharedModules = [ inputs.goxlr-hm.homeModules.default ];
 ```
 
 <!-- END generated:installation -->
@@ -96,7 +96,7 @@ Import in your Home Manager config:
 ```nix
 # In your flake, add to Home Manager sharedModules:
 home-manager.sharedModules = [
-  inputs.goxlr-hm.homeManagerModules.default
+  inputs.goxlr-hm.homeModules.default
 ];
 ```
 
