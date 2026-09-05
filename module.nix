@@ -735,23 +735,6 @@ let
     echo "GoXLR state applied (${toString (builtins.length allCmds)} commands)"
   '';
 
-  wakeGuardScript = pkgs.writeShellScript "goxlr-apply-wake-guard" ''
-    set -euo pipefail
-
-    # Skip re-apply if a manual toggle happened recently (< 15s ago).
-    # goxlr-toggle writes this inhibit file before switching profiles.
-    inhibit="/tmp/goxlr-toggle-inhibit"
-    if [ -f "$inhibit" ]; then
-      age=$(( $(${pkgs.coreutils}/bin/date +%s) - $(${pkgs.coreutils}/bin/stat -c %Y "$inhibit") ))
-      if [ "$age" -lt 15 ]; then
-        echo "Skipping re-apply (toggle inhibit active, ''${age}s old)"
-        exit 0
-      fi
-    fi
-
-    exec ${applyScript}
-  '';
-
   # Nullable option helpers
   mkNullOpt =
     type: description:
@@ -1272,7 +1255,7 @@ in
       }
     ];
 
-    systemd.user.services.goxlr-apply = lib.mkIf (allCmds != [ ]) {
+    systemd.user.services.goxlr-apply = lib.mkIf (allCmds != [ ] || hasPowerActions) {
       Unit = {
         Description = "Apply declarative GoXLR mixer state";
         After = [ "graphical-session.target" ];
@@ -1290,35 +1273,6 @@ in
         # the mixer state is applied once the daemon and device are actually ready.
         Restart = "on-failure";
         RestartSec = 10;
-      };
-      Install = {
-        WantedBy = [ "graphical-session.target" ];
-      };
-    };
-
-    # Re-apply GoXLR state after system wake — the daemon reloads profiles on wake,
-    # reverting any settings that differ from the profile files.
-    # Uses a path unit that watches for the goxlr-daemon to write its wake backup,
-    # which triggers a re-apply of the declarative state.
-    # The guard script skips re-apply when a manual toggle happened recently
-    # (goxlr-toggle writes /tmp/goxlr-toggle-inhibit before switching profiles).
-    systemd.user.services.goxlr-apply-wake = lib.mkIf (allCmds != [ ]) {
-      Unit = {
-        Description = "Re-apply GoXLR mixer state after wake";
-      };
-      Service = {
-        Type = "oneshot";
-        ExecStartPre = "${pkgs.coreutils}/bin/sleep 3";
-        ExecStart = "${wakeGuardScript}";
-      };
-    };
-
-    systemd.user.paths.goxlr-apply-wake = lib.mkIf (allCmds != [ ]) {
-      Unit = {
-        Description = "Watch for GoXLR profile reload (triggers re-apply after wake)";
-      };
-      Path = {
-        PathModified = "%h/.local/share/goxlr-utility/backups";
       };
       Install = {
         WantedBy = [ "graphical-session.target" ];
