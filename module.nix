@@ -118,12 +118,15 @@ let
   );
 
   # --- Routing commands ---
-  # GoXLR Mini has fewer routes than Full — tolerate "Invalid Route" errors
   routingCmds = lib.concatLists (
     lib.mapAttrsToList (
       input: outputs:
       lib.mapAttrsToList (
-        output: enabled: mkDeviceCmd "router ${input} ${output} ${lib.boolToString enabled} || true"
+        output: enabled:
+        let
+          cmd = mkDeviceCmd "router ${input} ${output} ${lib.boolToString enabled}";
+        in
+        "${cmd} || { echo ${lib.escapeShellArg "goxlr-apply: route rejected: ${cmd}"} >&2; routes_rejected=$((routes_rejected + 1)); }"
       ) outputs
     ) cfg.routing
   );
@@ -714,13 +717,25 @@ let
     set -euo pipefail
     export PATH="${lib.makeBinPath [ pkgs.goxlr-utility ]}:$PATH"
 
-    # Wait for goxlr-daemon to be reachable (up to 30s)
+    reason=""
     for i in $(seq 1 30); do
-      if goxlr-client ${deviceFlag}--status >/dev/null 2>&1; then
-        break
+      if status="$(goxlr-client ${deviceFlag}--status-json 2>&1)"; then
+        ${
+          if cfg.device == null then
+            "break"
+          else
+            ''
+              if ${pkgs.jq}/bin/jq -e --arg serial ${lib.escapeShellArg cfg.device} '.mixers | has($serial)' <<<"$status" >/dev/null; then
+                break
+              fi
+              reason=${lib.escapeShellArg "GoXLR ${cfg.device} is not connected"}
+            ''
+        }
+      else
+        reason="$status"
       fi
       if [ "$i" -eq 30 ]; then
-        echo "goxlr-daemon not reachable after 30s, giving up" >&2
+        echo "goxlr-apply: GoXLR not ready after 30s, nothing applied: $reason" >&2
         exit 1
       fi
       sleep 1
@@ -729,9 +744,14 @@ let
     # Small delay for device initialization after daemon is up
     sleep 1
 
+    routes_rejected=0
     ${powerActionsScript}
     ${lib.concatStringsSep "\n" allCmds}
 
+    if [ "$routes_rejected" -gt 0 ]; then
+      echo "goxlr-apply: $routes_rejected declared route(s) rejected by the device" >&2
+      exit 2
+    fi
     echo "GoXLR state applied (${toString (builtins.length allCmds)} commands)"
   '';
 
@@ -1259,10 +1279,6 @@ in
       Unit = {
         Description = "Apply declarative GoXLR mixer state";
         After = [ "graphical-session.target" ];
-        # Stop retrying after 5 attempts (50s window) — if the daemon isn't up
-        # by then, something else is wrong. Prevents infinite restart loops.
-        StartLimitBurst = 5;
-        StartLimitIntervalSec = 50;
       };
       Service = {
         Type = "oneshot";
@@ -1273,6 +1289,7 @@ in
         # the mixer state is applied once the daemon and device are actually ready.
         Restart = "on-failure";
         RestartSec = 10;
+        RestartPreventExitStatus = 2;
       };
       Install = {
         WantedBy = [ "graphical-session.target" ];
