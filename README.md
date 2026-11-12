@@ -1,70 +1,21 @@
 # goxlr-hm-nix
 
-<!-- BEGIN generated:badges -->
-[![CI](https://github.com/Daaboulex/goxlr-hm-nix/actions/workflows/ci.yml/badge.svg)](https://github.com/Daaboulex/goxlr-hm-nix/actions/workflows/ci.yml)
-[![NixOS unstable](https://img.shields.io/badge/NixOS-unstable-78C0E8?logo=nixos&logoColor=white)](https://nixos.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
-<!-- END generated:badges -->
+A Home Manager module that keeps the state of a GoXLR or GoXLR Mini mixer in
+your Nix configuration. You declare volumes, fader assignments, routing,
+microphone settings, effects and lighting, and a user service applies them
+through `goxlr-client` when you log in. It is for someone who already runs the
+GoXLR Utility and wants the mixer to come up as declared.
 
-Home Manager module for declarative GoXLR / GoXLR Mini mixer configuration via `goxlr-client`.
+Both the GoXLR and the GoXLR Mini are supported. The repository's own check
+only evaluates the module. No check here runs against a real mixer.
 
-<!-- BEGIN generated:upstream -->
-## Upstream
+## Install
 
-| | |
-|---|---|
-| **Project** | Original code (no upstream) |
-| **License** | N/A |
-| **Tracked** | N/A |
+The module does not start the GoXLR Utility. nixpkgs' `services.goxlr-utility`
+NixOS module does: it registers the udev rules and, with `autoStart.xdg` on,
+installs the package and an autostart entry that starts `goxlr-daemon`.
 
-<!-- END generated:upstream -->
-
-## Components
-
-| Component | Type | Description |
-|---|---|---|
-| `homeModules.default` | HM module | Declarative `programs.goxlr.*` options (volumes, faders, routing, mic, submix, effects, sampler, lighting, settings) |
-| `goxlr-apply.service` | systemd user unit | Waits for `goxlr-daemon`, then applies declared mixer state via `goxlr-client` on login |
-| [`export-config.sh`](export-config.sh) | shell script | Reads `goxlr-client --status-json` and emits a ready-to-paste `programs.goxlr` Nix attrset |
-
-## What it does
-
-Applies mixer state (volumes, fader assignments, routing, microphone settings, effects, sampler, submix, lighting, animation, device settings, profiles) at login via a systemd user service that waits for `goxlr-daemon`.
-
-nixpkgs' `services.goxlr-utility` NixOS module registers the GoXLR Utility's udev rules and, with `autoStart.xdg` on, installs the package and an XDG autostart entry that starts `goxlr-daemon`. This module handles the user-facing mixer state.
-
-All string values must be the exact lowercase-hyphenated CLI values accepted by `goxlr-client`. The sampler is the exception: its bank, button, playback mode and playback order names are PascalCase (`SamplerA`, `TopLeft`, `PlayNext`, `Sequential`), and the module converts them.
-
-### GoXLR Mini vs Full
-
-Both devices are fully supported. Mini-specific differences:
-
-- **No effects panel** — reverb, echo, pitch, gender, megaphone, robot, hard tune are Full-only hardware
-- **No sampler** — sample pads are Full-only hardware
-- **No scribble screens** — fader OLED displays are Full-only hardware
-- **No encoder lighting** — rotary encoder rings are Full-only hardware
-- **6 buttons** — fader1-mute through fader4-mute, cough, bleep (Full has additional effect-select and effect-toggle buttons)
-- **3-band mini EQ** — `microphone.equaliserMini` instead of Full's 10-band `microphone.equaliser`
-
-### Profile management
-
-GoXLR stores profiles as binary files (device profiles: `.goxlr` ZIP archives, mic profiles: `.goxlrMicProfile` XML). These are **not expressible as Nix attrsets** — deploy them with `home.file`:
-
-```nix
-home.file = {
-  ".local/share/goxlr-utility/profiles/My Profile.goxlr".source =
-    ./goxlr-profiles + "/My Profile.goxlr";
-  ".local/share/goxlr-utility/mic-profiles/My Mic.goxlrMicProfile".source =
-    ./goxlr-mic-profiles + "/My Mic.goxlrMicProfile";
-};
-```
-
-The `profile` and `micProfile` options load a named profile on login — the profile files must already exist on disk.
-
-<!-- BEGIN generated:installation -->
-## Installation
-
-Add as a flake input:
+Add the flake:
 
 ```nix
 {
@@ -75,191 +26,115 @@ Add as a flake input:
 }
 ```
 
-Import the Home Manager module:
+Switch the daemon on and import the module into Home Manager:
 
 ```nix
-home-manager.sharedModules = [ inputs.goxlr-hm.homeModules.default ];
+{
+  services.goxlr-utility.enable = true;
+  home-manager.sharedModules = [ inputs.goxlr-hm.homeModules.default ];
+}
 ```
 
-<!-- END generated:installation -->
-
-## Usage
-
-Add as a flake input:
+Then declare the mixer in your Home Manager configuration:
 
 ```nix
-inputs.goxlr-hm.url = "github:Daaboulex/goxlr-hm-nix";
+{
+  programs.goxlr = {
+    enable = true;
+    volumes = {
+      mic = 100;
+      headphones = 100;
+    };
+  };
+}
 ```
 
-Import in your Home Manager config:
+A user service, `goxlr-apply`, applies this when the graphical session starts.
+With `enable` alone and nothing else declared, no service is created.
+
+## Options to set first
+
+| Option under `programs.goxlr` | What it is for |
+|---|---|
+| `profile`, `micProfile` | Load a device profile and a microphone profile by name |
+| `volumes` | Channel volumes, 0 to 100 percent |
+| `faders` | The channel each fader, `a` to `d`, controls |
+| `routing` | Which input is sent to which output |
+| `microphone` | Gain, noise gate, compressor and equaliser |
+| `lighting` | Colours of the faders and buttons, and the animation |
+| `device` | Serial number of the mixer, needed when more than one GoXLR is connected |
+| `extraCommands` | Raw `goxlr-client` commands, run after everything else |
+
+String values are the exact lowercase, hyphenated values `goxlr-client`
+accepts, such as `to-stream`. The sampler is the exception: its bank,
+button, playback mode and playback order names are PascalCase (`SamplerA`,
+`TopLeft`, `PlayNext`, `Sequential`), and the module converts them.
+
+Every option, with its type and description: [docs/OPTIONS.md](docs/OPTIONS.md).
+
+## Profiles
+
+The GoXLR Utility keeps profiles as files: a device profile is a `.goxlr` ZIP
+archive, a microphone profile a `.goxlrMicProfile` XML file. They cannot be
+written as Nix attribute sets, so deploy them with `home.file`:
 
 ```nix
-# In your flake, add to Home Manager sharedModules:
-home-manager.sharedModules = [
-  inputs.goxlr-hm.homeModules.default
-];
-```
-
-### Example configuration (GoXLR Mini)
-
-```nix
-programs.goxlr = {
-  enable = true;
-
-  # Load profiles on login
-  profile = "Yellow Default";
-  micProfile = "Mic NeatKingBee";
-
-  # Channel volumes (0-100 percent)
-  volumes = {
-    mic = 100; chat = 100; music = 59; game = 100;
-    console = 50; system = 82; sample = 100;
-    headphones = 100; mic-monitor = 0; line-out = 100;
-  };
-
-  # Fader assignments
-  faders = { a = "game"; b = "chat"; c = "music"; d = "system"; };
-
-  # Fader mute behaviour
-  faderMuteBehaviour = { a = "all"; b = "all"; c = "all"; d = "all"; };
-
-  # Audio routing matrix (input → output → enabled)
-  routing = {
-    microphone = {
-      headphones = false; broadcast-mix = true;
-      chat-mic = true; sampler = true;
-      line-out = false; stream-mix2 = false;
-    };
-    chat = { headphones = true; line-out = true; };
-    music = { headphones = true; broadcast-mix = true; line-out = true; };
-    game = { headphones = true; line-out = true; };
-    system = { headphones = true; line-out = true; };
-  };
-
-  # Microphone settings (condenser mic example)
-  microphone = {
-    condenserGain = 36;
-    dynamicGain = 37;
-    jackGain = 30;
-    deEss = 0;
-    gate = {
-      active = true; threshold = -59;
-      attenuation = 30; attack = "gate10ms"; release = "gate200ms";
-    };
-    compressor = {
-      threshold = -18; ratio = "ratio3-2";
-      attack = "comp3ms"; release = "comp230ms"; makeUp = 3;
-    };
-  };
-
-  # Submix (independent monitor/stream volumes)
-  submix = {
-    enabled = true;
-    volumes = { mic = 100; chat = 100; music = 100; game = 100; };
-    linked = { mic = true; chat = true; game = true; };
-    outputMix = { headphones = "a"; broadcast-mix = "b"; };
-    monitorMix = "headphones";
-  };
-
-  # Cough/bleep buttons (bleep volume 0-100 percent)
-  coughButton = { isHold = false; muteBehaviour = "all"; };
-  bleepVolume = 50;
-
-  # Device settings
-  settings = {
-    muteHoldDuration = 500;
-    monitorWithFx = false;
-    deafenOnChatMute = true;
-    lockFaders = false;
-  };
-
-  # Lighting (yellow theme example)
-  lighting = {
-    animation = { mode = "none"; };
-    faders = {
-      a = { display = "two-colour"; top = "000000"; bottom = "FFF80C"; };
-      b = { display = "two-colour"; top = "000000"; bottom = "FFF80C"; };
-    };
-    buttons = {
-      fader1-mute = { colour = "FFF80C"; colour2 = "FF00C8"; offStyle = "dimmed"; };
-      cough = { colour = "FFF80C"; colour2 = "00FFFF"; offStyle = "dimmed"; };
-      bleep = { colour = "FFF80C"; colour2 = "00FFFF"; offStyle = "dimmed"; };
-    };
-    simple = { global = "003FFA"; accent = "FFF80C"; };
-  };
+home.file = {
+  ".local/share/goxlr-utility/profiles/My Profile.goxlr".source =
+    ./goxlr-profiles + "/My Profile.goxlr";
+  ".local/share/goxlr-utility/mic-profiles/My Mic.goxlrMicProfile".source =
+    ./goxlr-mic-profiles + "/My Mic.goxlrMicProfile";
 };
 ```
 
-### Example configuration (GoXLR Full additions)
+`profile` and `micProfile` load a profile by name on login. The file must
+already be on disk.
 
-```nix
-programs.goxlr = {
-  # ... all Mini options above, plus:
+## Export what the mixer has now
 
-  # Scribble screens (Full-only OLED displays)
-  scribbles = {
-    a = { text = "Mic"; icon = "microphone"; invert = false; };
-    b = { text = "Music"; number = "2"; };
-  };
-
-  # Effects panel (Full-only)
-  effects = {
-    enabled = true;
-    activePreset = "preset1";
-    reverb = { style = "library"; amount = 20; decay = 2000; };
-    echo = { style = "quarter"; amount = 15; feedback = 30; };
-    pitch = { style = "narrow"; amount = 0; };
-    gender = { style = "narrow"; amount = 0; };
-    megaphone = { style = "megaphone"; enabled = false; };
-    robot = { style = "robot1"; enabled = false; };
-    hardTune = { style = "natural"; enabled = false; };
-  };
-
-  # Sampler (Full-only)
-  sampler.SamplerA.TopLeft = {
-    files = [ "/path/to/sound.wav" ];
-    playbackMode = "PlayNext";
-    playbackOrder = "Sequential";
-  };
-
-  # Encoder lighting (Full-only)
-  lighting.encoders = {
-    reverb = { colour1 = "00FFFF"; colour2 = "000000"; colour3 = "00FFFF"; };
-    echo = { colour1 = "00FFFF"; colour2 = "000000"; colour3 = "00FFFF"; };
-  };
-};
-```
-
-## Options reference
-
-Every `programs.goxlr` option, with its type and description, is declared in [`module.nix`](module.nix).
-
-## Exporting current settings
-
-To generate Nix config from your current GoXLR state:
+From a clone of this repository, with the daemon running:
 
 ```bash
 bash export-config.sh > my-goxlr-config.nix
 ```
 
-This reads `goxlr-client --status-json`, converts all values to the correct format (volumes 0-100, kebab-case names), and outputs valid Nix ready to paste into your `programs.goxlr` block. Detects GoXLR Mini vs Full automatically and omits unavailable features. Requires `goxlr-client` and `jq`.
+This reads `goxlr-client --status-json` and prints Nix to paste into your
+`programs.goxlr` block, with volumes as 0 to 100 and names in kebab-case. It
+needs `goxlr-client` and `jq`. `--profile <name>` exports one device profile
+and `--all-profiles` exports every profile.
 
-## Development
+## Known limits
+
+- A GoXLR Mini has no effects panel, sampler, scribble screens or encoder
+  lighting. `effects`, `sampler`, `scribbles` and `lighting.encoders` are for
+  the full GoXLR.
+- A Mini has its own equaliser option, `microphone.equaliserMini`. The full
+  GoXLR uses `microphone.equaliser`.
+- Volumes and `bleepVolume` are range-checked when the configuration is built.
+  Most other values, such as a channel or style name, go to `goxlr-client` as
+  written, so a misspelt one fails at login.
+- `export-config.sh` does not write effects, the sampler, the scribble screens
+  or the equaliser.
+
+## When the mixer does not come up as declared
 
 ```bash
-git clone https://github.com/Daaboulex/goxlr-hm-nix
-cd goxlr-hm-nix
-nix develop                       # enter dev shell, installs pre-commit hooks
-nix fmt                           # format flake + module
-nix flake check --no-build        # eval check (canonical CI gate, module-only repo)
+journalctl --user -u goxlr-apply
 ```
 
-<!-- BEGIN generated:options -->
-<!-- END generated:options -->
+- `GoXLR not ready after 30s, nothing applied` means the daemon did not
+  answer, or the mixer named by `device` is not connected. The service tries
+  again every ten seconds.
+- `route rejected` means one entry of `routing` was refused. The rest is still
+  applied and the service does not try again.
+
+## More
+
+- [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md): what a Mini lacks, and a
+  complete configuration for each device
+- [docs/DESIGN.md](docs/DESIGN.md): how the state is applied, power actions
+- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): the dev shell, the checks, CI
 
 ## License
 
 This module is [MIT](./LICENSE) licensed. The upstream GoXLR Utility (daemon + `goxlr-client`) is [MIT](https://github.com/GoXLR-on-Linux/goxlr-utility/blob/main/LICENSE).
-
-<!-- BEGIN generated:footer -->
-<!-- END generated:footer -->
