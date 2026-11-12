@@ -4,9 +4,9 @@
 # sampler, submix, lighting, animation, device settings, and profile loading
 # at login via a systemd user service that waits for the goxlr-daemon socket.
 #
-# The NixOS-level module (parts/goxlr.nix) handles daemon setup, udev, UCM
-# patches, PipeWire EQ chains, and denoise.  This HM module handles the
-# user-facing mixer state that goxlr-client configures.
+# The daemon and its udev rules are the system's side, nixpkgs'
+# services.goxlr-utility. This module handles the user-facing mixer state
+# that goxlr-client configures.
 {
   config,
   lib,
@@ -931,7 +931,7 @@ in
           headphones = true;
           chat-mic = true;
           broadcast-mix = true;
-          samples = false;
+          sampler = false;
         };
         music = {
           headphones = true;

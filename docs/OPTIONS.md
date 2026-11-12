@@ -832,7 +832,7 @@ Example:
     broadcast-mix = true;
     chat-mic = true;
     headphones = true;
-    samples = false;
+    sampler = false;
   };
   music = {
     broadcast-mix = true;
