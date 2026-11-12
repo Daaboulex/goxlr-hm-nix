@@ -25,15 +25,15 @@ Home Manager module for declarative GoXLR / GoXLR Mini mixer configuration via `
 |---|---|---|
 | `homeModules.default` | HM module | Declarative `programs.goxlr.*` options (volumes, faders, routing, mic, submix, effects, sampler, lighting, settings) |
 | `goxlr-apply.service` | systemd user unit | Waits for `goxlr-daemon`, then applies declared mixer state via `goxlr-client` on login |
-| `export-config.sh` | shell script | Reads `goxlr-client --status-json` and emits a ready-to-paste `programs.goxlr` Nix attrset |
+| [`export-config.sh`](export-config.sh) | shell script | Reads `goxlr-client --status-json` and emits a ready-to-paste `programs.goxlr` Nix attrset |
 
 ## What it does
 
 Applies mixer state (volumes, fader assignments, routing, microphone settings, effects, sampler, submix, lighting, animation, device settings, profiles) at login via a systemd user service that waits for `goxlr-daemon`.
 
-The NixOS-level GoXLR module handles daemon setup, udev, UCM patches, and PipeWire integration. This module handles the user-facing mixer state.
+nixpkgs' `services.goxlr-utility` NixOS module registers the GoXLR Utility's udev rules and, with `autoStart.xdg` on, installs the package and an XDG autostart entry that starts `goxlr-daemon`. This module handles the user-facing mixer state.
 
-All string values must be the exact lowercase-hyphenated CLI values accepted by `goxlr-client`.
+All string values must be the exact lowercase-hyphenated CLI values accepted by `goxlr-client`. The sampler is the exception: its bank, button, playback mode and playback order names are PascalCase (`SamplerA`, `TopLeft`, `PlayNext`, `Sequential`), and the module converts them.
 
 ### GoXLR Mini vs Full
 
@@ -161,9 +161,9 @@ programs.goxlr = {
     monitorMix = "headphones";
   };
 
-  # Cough/bleep buttons
+  # Cough/bleep buttons (bleep volume 0-100 percent)
   coughButton = { isHold = false; muteBehaviour = "all"; };
-  bleepVolume = -7;
+  bleepVolume = 50;
 
   # Device settings
   settings = {
@@ -218,8 +218,8 @@ programs.goxlr = {
   # Sampler (Full-only)
   sampler.SamplerA.TopLeft = {
     files = [ "/path/to/sound.wav" ];
-    playbackMode = "play-next";
-    playbackOrder = "sequential";
+    playbackMode = "PlayNext";
+    playbackOrder = "Sequential";
   };
 
   # Encoder lighting (Full-only)
@@ -232,81 +232,7 @@ programs.goxlr = {
 
 ## Options reference
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `enable` | bool | Enable declarative GoXLR configuration |
-| `device` | string | Device serial (required for multi-device) |
-| `profile` | string | Device profile to load on login |
-| `micProfile` | string | Mic profile to load on login |
-| **Channels** | | |
-| `volumes` | attrs of int | Channel volumes (0-100 percent) |
-| `faders` | attrs of string | Fader-to-channel assignments (a, b, c, d) |
-| `faderMuteBehaviour` | attrs of string | Per-fader mute behaviour on press |
-| `faderMuteState` | attrs of string | Per-fader mute state (unmuted, muted-to-x, muted-to-all) |
-| `scribbles.<fader>.icon` | string | Scribble screen icon file name (Full-only) |
-| `scribbles.<fader>.text` | string | Scribble screen text (Full-only) |
-| `scribbles.<fader>.number` | string | Scribble screen number (Full-only) |
-| `scribbles.<fader>.invert` | bool | Invert scribble display (Full-only) |
-| `routing` | attrs of attrs of bool | Input-to-output routing matrix |
-| `bleepVolume` | int | Bleep button volume (dB) |
-| **Microphone** | | |
-| `microphone.dynamicGain` | int | Dynamic (XLR) mic gain in dB |
-| `microphone.condenserGain` | int | Condenser mic gain in dB |
-| `microphone.jackGain` | int | Jack (3.5mm) mic gain in dB |
-| `microphone.deEss` | int | De-esser level (0-100) |
-| `microphone.monitorWithFx` | bool | Monitor mic when FX enabled |
-| `microphone.gate.*` | various | Noise gate (threshold, attenuation, attack, release, active) |
-| `microphone.compressor.*` | various | Compressor (threshold, ratio, attack, release, makeUp) |
-| `microphone.equaliser.<band>` | submodule | Full GoXLR EQ (frequency, gain per band) |
-| `microphone.equaliserMini.<band>` | submodule | GoXLR Mini EQ (frequency, gain per band) |
-| **Submix** | | |
-| `submix.enabled` | bool | Enable/disable submixes |
-| `submix.volumes` | attrs of int | Submix channel volumes (0-100 percent) |
-| `submix.linked` | attrs of bool | Link channel volumes to submix |
-| `submix.outputMix` | attrs of string | Output device mix assignment (a or b) |
-| `submix.monitorMix` | string | Output device to monitor |
-| **Effects (Full-only)** | | |
-| `effects.enabled` | bool | Enable/disable FX panel |
-| `effects.activePreset` | string | Set active effect preset (preset1-6) |
-| `effects.loadPreset` | string | Load effect preset by name |
-| `effects.renameActivePreset` | string | Rename the active effect preset |
-| `effects.saveActivePreset` | bool | Save the active effect preset after changes |
-| `effects.reverb.*` | various | Reverb (style, amount, decay, earlyLevel, tailLevel, preDelay, lowColour, highColour, highFactor, diffuse, modSpeed, modDepth) |
-| `effects.echo.*` | various | Echo (style, amount, feedback, tempo, delayLeft, delayRight, feedbackXFBLtoR, feedbackXFBRtoL) |
-| `effects.pitch.*` | various | Pitch (style, amount, character) |
-| `effects.gender.*` | various | Gender (style, amount) |
-| `effects.megaphone.*` | various | Megaphone (style, amount, postGain, enabled) |
-| `effects.robot.*` | various | Robot (style, ranges.{low,medium,high}.{gain,frequency,bandwidth}, waveform, pulseWidth, threshold, dryMix, enabled) |
-| `effects.hardTune.*` | various | HardTune (style, amount, rate, window, source, enabled) |
-| **Sampler (Full-only)** | | |
-| `sampler.<bank>.<button>.files` | list of string | Audio files to add |
-| `sampler.<bank>.<button>.playbackMode` | string | Playback mode |
-| `sampler.<bank>.<button>.playbackOrder` | string | Playback order |
-| `sampler.<bank>.<button>.sampleSettings` | list of submodule | Per-sample start/stop percent by index |
-| `sampler.<bank>.<button>.removeByIndex` | list of int | Sample indices to remove |
-| **Cough button** | | |
-| `coughButton.isHold` | bool | Hold-only mode (not toggled) |
-| `coughButton.muteBehaviour` | string | Mute target on press |
-| `coughButton.muteState` | string | Mute state (unmuted, muted-to-x, muted-to-all) |
-| **Device settings** | | |
-| `settings.muteHoldDuration` | int | Mute hold duration (ms) |
-| `settings.samplePreRecordBuffer` | int | Sampler pre-record buffer (ms, Full-only) |
-| `settings.monitorWithFx` | bool | Monitor mic when FX enabled |
-| `settings.deafenOnChatMute` | bool | Mute mic when chat muted |
-| `settings.lockFaders` | bool | Lock faders on mute-to-all |
-| **Lighting** | | |
-| `lighting.global` | string | Global colour [RRGGBB] |
-| `lighting.animation.*` | various | Animation (mode, mod1, mod2, waterfall) |
-| `lighting.fadersAll.*` | various | All-fader lighting (display, top, bottom) |
-| `lighting.faders.<fader>.*` | various | Per-fader lighting (top, bottom, display) |
-| `lighting.buttons.<button>.*` | various | Per-button lighting (colour, colour2, offStyle) |
-| `lighting.buttonGroups.<group>.*` | various | Button group lighting (colour, colour2, offStyle) |
-| `lighting.simple` | attrs of string | Simple colour targets (global, accent) |
-| `lighting.encoders.<encoder>.*` | various | Encoder lighting (colour1, colour2, colour3, Full-only) |
-| **Escape hatch** | | |
-| `extraCommands` | list of string | Raw goxlr-client commands |
-
-All options under `programs.goxlr` are prefixed accordingly (e.g., `programs.goxlr.effects.reverb.style`).
+Every `programs.goxlr` option, with its type and description, is declared in [`module.nix`](module.nix).
 
 ## Exporting current settings
 
@@ -327,8 +253,6 @@ nix develop                       # enter dev shell, installs pre-commit hooks
 nix fmt                           # format flake + module
 nix flake check --no-build        # eval check (canonical CI gate, module-only repo)
 ```
-
-CI runs eval + format on every push; weekly maintenance updates `flake.lock`. No upstream-tracking workflow — this is original code.
 
 <!-- BEGIN generated:options -->
 <!-- END generated:options -->

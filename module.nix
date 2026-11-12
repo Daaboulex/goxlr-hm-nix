@@ -830,8 +830,8 @@ let
         default = [ ];
         description = "Audio files to add to this sampler button";
       };
-      playbackMode = mkNullStr "Playback mode: play-next, play-stop, play-fade, stop-on-release, fade-on-release, loop";
-      playbackOrder = mkNullStr "Playback order: sequential, random";
+      playbackMode = mkNullStr "Playback mode: PlayNext, PlayStop, PlayFade, StopOnRelease, FadeOnRelease, Loop";
+      playbackOrder = mkNullStr "Playback order: Sequential, Random";
       sampleSettings = lib.mkOption {
         type = lib.types.listOf samplerSampleSettingsSubmodule;
         default = [ ];
